@@ -3,20 +3,6 @@ const puppeteer = require('puppeteer');
 const { createObjectCsvWriter } = require('csv-writer');
 
 
-let finalFileList = [
-  [
-    'url', 
-    'IP anon', 
-    '3rd Party Requests', 
-    '1st Party Cookies', 
-    '3rd Party Cookies',
-    '3rd Party Request List', 
-    '1st Party Cookies List',
-    '3rd Party Cookies List'
-  ]
-];
-
-
 /**
   * Reads a list of URLs from a text file.
   *
@@ -78,6 +64,12 @@ async function parsePage(url, browser) {
   console.log(`[INFO] Parsing "${url}"...`);
 
   try {
+    const browser = await puppeteer.launch({
+      /* enable 'executablePath' when the script fails to open the
+       default browser executable */
+      //executablePath: '/usr/bin/chromium' 
+    });
+
     const page = await browser.newPage();
 
     const requests = [];
@@ -95,7 +87,7 @@ async function parsePage(url, browser) {
       }
     });
 
-    await page.goto(url, { waitUntil: 'networkidle0' });
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
 
     const cookies1stParty = await page.cookies();
     // get all the domains for the 1st party cookies
@@ -108,6 +100,8 @@ async function parsePage(url, browser) {
         // match any within the 1st party cookies
         !domainMatch1stParty.some(key => cookie.domain.includes(key))
       ));
+
+    await browser.close();
  
     return {
       url, 
@@ -166,18 +160,11 @@ function formatList(arr) {
   const paths = parseUrls('./mock-urls.txt');
 
   try {
-    const browser = await puppeteer.launch({
-      /* enable 'executablePath' when the script fails to open the
-       default browser executable */
-      //executablePath: '/usr/bin/chromium' 
-    });
     
-    const promises = paths.map(path => parsePage(path, browser));
+    const promises = paths.map(path => parsePage(path));
     
     Promise.all(promises)
       .then(async results => { 
-        await browser.close();
-
         console.log("[INFO]: Finished Fetching Pages...");
         
         console.log("___Results___\n", results);
